@@ -60,4 +60,26 @@ io.on("connection", (socket) => {
         socket.to(user.room).emit('MessageFromPeer',data,MemberId)
     }
   });
+
+  socket.on("MessagePeerScreen", (data,MemberId) => {
+    const user = getCurrentUser(socket.id);
+    if (user) {
+        socket.to(user.room).emit('MessageFromPeerScreen',data,MemberId)
+    }
+  });
+
+  socket.on("chat-sent",(message)=>{
+    const user = getCurrentUser(socket.id);
+    if (user) {
+      socket.to(user.room).emit('chat-received',message)
+  }
+  })
+
+  socket.on("screenClosed",()=>{
+    const user = getCurrentUser(socket.id);
+    if (user) {
+      socket.to(user.room).emit('screenClosedByPeer')
+  }
+  })
+ 
 });

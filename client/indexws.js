@@ -1,6 +1,17 @@
 const socket=io()
 let client;
 let channel;
+var date = new Date();
+
+var options = {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  };
+
+
 
 let queryString = window.location.search
 let urlParams = new URLSearchParams(queryString)
@@ -15,7 +26,10 @@ let localStream;
 let remoteStream;
 let peerConnection;
 
-
+let localScreenStream;
+let peerConnectionScreen;
+let remoteScreenStream;
+let isScreenSharing = false;
   
 const servers = {
     iceServers:[
@@ -193,16 +207,91 @@ let toggleCamera = async () => {
 let toggleMic = async () => {
 
     let audioTrack = localStream.getTracks().find(track => track.kind === 'audio')
+    console.log("bruh")
     if(audioTrack.enabled){
+
         audioTrack.enabled = false
         document.getElementById('mic-btn').style.backgroundColor = 'rgb(255, 80, 80)'
+        console.log("bruhof",audioTrack)
+
     }else{
         audioTrack.enabled = true
         document.getElementById('mic-btn').style.backgroundColor = 'rgb(179, 102, 249, .9)'
+        console.log("bruhon",audioTrack)
     }
 }
   
 // window.addEventListener('beforeunload', socket.disconnect())
+let ChatShow = async () => {
+    const chatBox = document.getElementsByClassName("chat-container")[0].style;
+    if (chatBox.display == "flex") {
+      chatBox.display = "none";
+      document.getElementById("chat-toggle-btn").style.backgroundColor =
+        "rgb(179, 102, 249, .9)";
+    } else {
+      chatBox.display = "flex";
+      document.getElementById("chat-toggle-btn").style.backgroundColor =
+        "rgb(255, 80, 80)";
+    }
+    scrollBottom();
+  };
+  
+  let closeChat = () => {
+    const chatBox = document.getElementsByClassName("chat-container")[0].style;
+  
+    if (chatBox.display == "flex") {
+      chatBox.display = "none";
+      document.getElementById("chat-toggle-btn").style.backgroundColor =
+        "rgb(179, 102, 249, .9)";
+    }
+  };
+  let scrollBottom = () => {
+    const msgGrid = document.getElementsByClassName("message-grid")[0];
+    msgGrid.scrollTop = msgGrid.scrollHeight;
+  };
+  // window.addEventListener('beforeunload', socket.disconnect())
+  const enterHandle = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      // Your custom logic for handling Enter key press
+      sendBtn();
+    }
+  };
+  
+  let sendBtn = async () => {
+    const input = document.getElementsByClassName("chat-input")[0];
+    let formattedDate = new Intl.DateTimeFormat("en-GB", options).format(date);
+  
+    const div = document.createElement("div");
+    div.classList.add("message-container");
+    div.innerHTML = ` <div class="msg-user">You</div>
+      <div class="msg-time">${formattedDate}</div>
+  
+      <div class="msg-message">
+        ${input.value}
+      </div>`;
+    socket.emit("chat-sent", input.value);
+    input.value = "";
+  
+    document.querySelector(".message-grid").appendChild(div);
+    scrollBottom();
+  };
+  
+  socket.on("chat-received", (message) => {
+    let formattedDate = new Intl.DateTimeFormat("en-GB", options).format(date);
+  
+    const div = document.createElement("div");
+    div.classList.add("message-container");
+    div.innerHTML = ` <div class="msg-user">Peer Connection</div>
+      <div class="msg-time">${formattedDate}</div>
+  
+      <div class="msg-message">
+        ${message}
+      </div>`;
+    document.querySelector(".message-grid").appendChild(div);
+  
+    scrollBottom();
+  });
 
 document.getElementById('camera-btn').addEventListener('click', toggleCamera)
 document.getElementById('mic-btn').addEventListener('click', toggleMic)
@@ -211,7 +300,6 @@ if(role){
     let lastLandmarks = null; // Store the landmarks from the previous frame
     let trigger=0;
     
-    console.log("jlhhl")
     document.getElementById('user-1').addEventListener("play", () => {
         const canvas = faceapi.createCanvasFromMedia(document.getElementById('user-1'));
         document.body.append(canvas);
@@ -227,6 +315,9 @@ if(role){
             height: 480,
             width: 640,
           });
+
+          
+
           canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
           faceapi.draw.drawDetections(canvas, resizedDetections);
           faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
@@ -281,7 +372,27 @@ if(role){
             // console.log('Looking straight ahead');
         } else {
             trigger+=1;
-            if(trigger%4==0 && trigger>0){ alert("Not looking straight ahead")}
+            if(trigger%3==0 && trigger>0){ 
+
+                alert("Not looking straight ahead")
+                let formattedDate = new Intl.DateTimeFormat("en-GB", options).format(date);
+  
+                const div = document.createElement("div");
+                div.classList.add("message-container");
+                div.innerHTML = ` <div class="msg-user">You</div>
+                  <div class="msg-time">${formattedDate}</div>
+              
+                  <div class="msg-message">
+                    Candidate is not looking straight!
+                  </div>`;
+
+                
+                socket.emit("chat-sent",'Candidate is not looking straight' );
+                document.querySelector(".message-grid").appendChild(div);
+                scrollBottom();
+
+        
+        }
             console.log('Not looking straight ahead');
         }
     });
@@ -301,3 +412,245 @@ if(role){
         return distance;
       }
 }
+
+
+document.getElementById("chat-toggle-btn").addEventListener("click", ChatShow);
+document.getElementById("close-btn").addEventListener("click", closeChat);
+document.getElementById("send-btn").addEventListener("click", sendBtn);
+document
+  .getElementsByClassName("chat-input")[0]
+  .addEventListener("keydown", enterHandle);
+
+const serversScreen = {
+  iceServers: [
+    {
+      urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
+    },
+    {
+      username:
+        "mligxW9DblMS1X7AYeVQV-4SUCT7k2EpXbF1JWPWTHnooHM-kDddb75VtoROX21TAAAAAGRRCS5EaHJ1dg==",
+      credential: "2b0a3b8c-e8e9-11ed-83b0-0242ac140004",
+      urls: [
+        "turn:bn-turn1.xirsys.com:80?transport=udp",
+        "turn:bn-turn1.xirsys.com:3478?transport=udp",
+        "turn:bn-turn1.xirsys.com:80?transport=tcp",
+        "turn:bn-turn1.xirsys.com:3478?transport=tcp",
+        "turns:bn-turn1.xirsys.com:443?transport=tcp",
+        "turns:bn-turn1.xirsys.com:5349?transport=tcp",
+      ],
+    },
+  ],
+};
+
+const shareScreenInit = async () => {
+  try {
+    localScreenStream = await navigator.mediaDevices.getDisplayMedia({
+      audio: true,
+      video: true,
+    });
+    isScreenSharing = true;
+    document.getElementById("screen-1").srcObject = localScreenStream;
+    peerConnectionScreen = new RTCPeerConnection({
+      iceServers: [
+          {
+              urls: "stun:stun.stunprotocol.org"
+          },
+          {
+              urls: 'turn:numb.viagenie.ca',
+              credential: 'muazkh',
+              username: 'webrtc@live.com'
+          },
+      ]
+  });
+    document.getElementById("screen-1").srcObject = localScreenStream;
+    document.getElementById("screen-1").style.display = "block";
+    if (peerConnection) {
+      document.getElementById("user-1").classList.add("smallFrame");
+    }
+    document.getElementById("screen-1").classList.add("smallFrame3");
+    localScreenStream.getTracks().forEach((track) => {
+      peerConnectionScreen.addTrack(track, localStream);
+    });
+
+    peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        socket.emit(
+          "MessagePeerScreen",
+          {
+            text: JSON.stringify({
+              type: "candidate",
+              candidate: event.candidate,
+            }),
+          },
+          MemberId,
+          { broadcast: true }
+        );
+      }
+    };
+    let offer = await peerConnectionScreen.createOffer();
+    await peerConnectionScreen.setLocalDescription(offer);
+    socket.emit(
+      "MessagePeerScreen",
+      { text: JSON.stringify({ type: "offer", offer: offer }) },
+      socket.id,
+      { broadcast: true }
+    );
+    document.getElementById("screen-btn").style.backgroundColor =
+      "rgb(255, 80, 80)";
+  } catch (err) {
+    console.error("Permission denied to share screen", err);
+    if (!isScreenSharing) {
+      Toastify({
+        text: "WebRtc currently doesnt allow mobile browser to share screen!",
+        duration: 3000,
+        close: true,
+        gravity: "top", // `top` or `bottom`
+        position: "center", // `left`, `center` or `right`
+        stopOnFocus: true, // Prevents dismissing of toast on hover
+        style: {
+          background: "red",
+          color: "white",
+        },
+      }).showToast();
+    } else {
+      document.getElementById("screen-btn").style.backgroundColor =
+        "rgb(255, 80, 80)";
+    }
+  }
+};
+
+socket.on("MessagePeerScreen", async (message, MemberId) => {
+  message = JSON.parse(message.text);
+
+  if (message.type === "offer") {
+    peerConnectionScreen = new RTCPeerConnection(servers);
+
+    remoteScreenStream = new MediaStream();
+    localScreenStream.getTracks().forEach((track) => {
+      peerConnectionScreen.addTrack(track, localStream);
+    });
+
+    peerConnectionScreen.ontrack = (event) => {
+      event.streams[0].getTracks().forEach((track) => {
+        remoteScreenStream.addTrack(track);
+      });
+    };
+
+    peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        socket.emit(
+          "MessagePeerScreen",
+          {
+            text: JSON.stringify({
+              type: "candidate",
+              candidate: event.candidate,
+            }),
+          },
+          MemberId,
+          { broadcast: true }
+        );
+      }
+    };
+
+    let offer = await peerConnectionScreen.createOffer();
+    await peerConnectionScreen.setLocalDescription(offer);
+    socket.emit(
+      "MessagePeerScreen",
+      { text: JSON.stringify({ type: "offer", offer: offer }) },
+      MemberId,
+      { broadcast: true }
+    );
+  }
+
+  document.getElementById("user-2").srcObject = remoteStream;
+
+  document.getElementById("user-2").style.display = "block";
+});
+
+socket.on("MessageFromPeerScreen", async (message, MemberId) => {
+  message = JSON.parse(message.text);
+  if (message.type === "offer") {
+    peerConnectionScreen = new RTCPeerConnection(servers);
+    remoteScreenStream = new MediaStream();
+
+    document.getElementById("user-2").classList.add("smallFrame2");
+
+    document.getElementById("screen-2").srcObject = remoteScreenStream;
+    document.getElementById("screen-2").style.display = "block";
+    peerConnectionScreen.ontrack = (event) => {
+      event.streams[0].getTracks().forEach((track) => {
+        remoteScreenStream.addTrack(track);
+      });
+    };
+    peerConnectionScreen.onicecandidate = async (event) => {
+      if (event.candidate) {
+        // client.sendMessageToPeer({text:JSON.stringify({'type':'candidate', 'candidate':event.candidate})}, MemberId)
+        socket.emit(
+          "MessagePeerScreen",
+          {
+            text: JSON.stringify({
+              type: "candidate",
+              candidate: event.candidate,
+            }),
+          },
+          MemberId,
+          { broadcast: true }
+        );
+      }
+    };
+    await peerConnectionScreen.setRemoteDescription(message.offer);
+    let answer = await peerConnectionScreen.createAnswer();
+    await peerConnectionScreen.setLocalDescription(answer);
+
+    // client.sendMessageToPeer({text:JSON.stringify({'type':'answer', 'answer':answer})}, MemberId)
+    socket.emit(
+      "MessagePeerScreen",
+      { text: JSON.stringify({ type: "answer", answer: answer }) },
+      MemberId,
+      { broadcast: true }
+    );
+  }
+
+  if (message.type === "answer") {
+    if (!peerConnectionScreen.currentRemoteDescription) {
+      await peerConnectionScreen.setRemoteDescription(message.answer);
+    }
+  }
+
+  if (message.type === "candidate") {
+    if (peerConnectionScreen) {
+      peerConnectionScreen.addIceCandidate(message.candidate);
+    }
+  }
+});
+
+const stopScreenSharing = async () => {
+  localScreenStream.getTracks().forEach((track) => track.stop());
+  document.getElementById("screen-1").style.display = "none";
+  if (document.getElementById("screen-2").style.display == "none") {
+    document.getElementById("user-2").classList.remove("smallFrame2");
+  }
+  socket.emit("screenClosed");
+  isScreenSharing = false;
+  if (peerConnectionScreen) {
+    peerConnectionScreen.close();
+    peerConnectionScreen = null;
+  }
+  document.getElementById("screen-btn").style.backgroundColor =
+    "rgb(179, 102, 249, .9)";
+};
+const screenShareHandle = () => {
+  if (isScreenSharing) {
+    stopScreenSharing();
+  } else {
+    shareScreenInit();
+  }
+};
+
+socket.on("screenClosedByPeer", () => {
+  document.getElementById("screen-2").style.display = "none";
+  document.getElementById("user-2").classList.remove("smallFrame2");
+});
+document
+  .getElementById("screen-btn")
+  .addEventListener("click", screenShareHandle);
